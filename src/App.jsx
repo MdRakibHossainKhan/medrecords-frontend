@@ -1,13 +1,19 @@
-import React from 'react'
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
 
-function App() {
+export default function App() {
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-      <h1 className="text-4xl font-bold text-blue-600">
-        Tailwind is working! 🚀
-      </h1>
-    </div>
-  )
-}
+    <BrowserRouter>
+      <Routes>
+        {/* Default route redirects to Login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
-export default App
+        {/* The Login Page */}
+        <Route path="/login" element={<Login />} />
+
+        {/* We will add the Dashboard and Patient pages here later! */}
+      </Routes>
+    </BrowserRouter>
+  );
+}
