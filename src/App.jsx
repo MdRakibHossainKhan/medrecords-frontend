@@ -1,17 +1,19 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import AddPatient from "./pages/AddPatient";
 
-export default function App() {
+function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
-
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/add-patient" element={<AddPatient />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
+
+export default App;
