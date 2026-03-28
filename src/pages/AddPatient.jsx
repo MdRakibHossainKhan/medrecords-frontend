@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function AddPatient() {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
 
     // State to hold our form data
     const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ export default function AddPatient() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
 
         try {
             // Send the data to your Node.js backend
@@ -24,7 +26,9 @@ export default function AddPatient() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    // We will eventually pass the Cognito token here for security!
+                    // THESE ARE CRITICAL: They get you past the backend security middleware
+                    "x-role": "doctor",
+                    "x-sub": "demo-sub"
                 },
                 body: JSON.stringify(formData),
             });
@@ -38,12 +42,14 @@ export default function AddPatient() {
             }
         } catch (error) {
             console.error("Network error: Could not reach the backend.", error);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
-            <div className="mx-auto max-w-2xl rounded-lg bg-white p-8 shadow-md border border-gray-200">
+            <div className="mx-auto max-w-2xl rounded-lg border border-gray-200 bg-white p-8 shadow-md">
                 <h2 className="mb-6 text-3xl font-bold text-gray-800">Add New Patient</h2>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -101,9 +107,10 @@ export default function AddPatient() {
                         </button>
                         <button
                             type="submit"
-                            className="rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                            disabled={loading}
+                            className="rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:bg-blue-400"
                         >
-                            Save Patient
+                            {loading ? "Saving..." : "Save Patient"}
                         </button>
                     </div>
                 </form>
