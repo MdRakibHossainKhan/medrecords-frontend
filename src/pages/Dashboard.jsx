@@ -102,7 +102,10 @@ export default function Dashboard() {
                                                 : "N/A"}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                                            <button
+                                                onClick={() => navigate(`/patient/${patient.PatientID}`, { state: { patient } })}
+                                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                            >
                                                 View File
                                             </button>
                                         </td>
