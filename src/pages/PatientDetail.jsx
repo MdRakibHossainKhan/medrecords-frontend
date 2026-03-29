@@ -1,17 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function PatientDetail() {
     const location = useLocation();
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
 
-    // grab initial data from router
+    // grab initial data
     const patientData = location.state?.patient;
 
-    // local states for editing
+    // local states
     const [patient, setPatient] = useState(patientData);
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [uploadingXray, setUploadingXray] = useState(false);
     const [editForm, setEditForm] = useState(patientData?.profile || {});
 
     if (!patient) return <div className="p-10 text-center">No patient data found.</div>;
@@ -30,7 +32,6 @@ export default function PatientDetail() {
             });
 
             if (response.ok) {
-                // update local UI to match saved data without refreshing
                 setPatient({ ...patient, profile: editForm });
                 setIsEditing(false);
             }
@@ -42,7 +43,7 @@ export default function PatientDetail() {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm("Are you sure you want to permanently delete this patient record?")) return;
+        if (!window.confirm("Are you sure you want to permanently delete this patient?")) return;
 
         try {
             const response = await fetch(`http://localhost:8080/delete-patient/${patient.profile.PatientID}`, {
@@ -56,13 +57,60 @@ export default function PatientDetail() {
         }
     };
 
-    const { profile, activePrescriptions, recentRecords } = patient;
+    // handle xray file selection and upload
+    const handleXrayUpload = async (e) => {
+        const file = e.target.files;
+        if (!file) return;
+
+        setUploadingXray(true);
+
+        try {
+            // BYPASS: Send standard JSON with just the file name!
+            const response = await fetch("http://localhost:8080/analyze-xray", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json", // We CAN use JSON now!
+                    "x-role": "doctor",
+                    "x-sub": patient.profile.PatientID
+                },
+                body: JSON.stringify({ fileName: file.name }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                const newXray = {
+                    RecordID: `XRAY#${data.formattedTimestamp}`,
+                    FileName: file.name,
+                    Prediction: data.prediction,
+                    Timestamp: data.formattedTimestamp
+                };
+
+                setPatient({
+                    ...patient,
+                    xrayRecords: [...(patient.xrayRecords || []), newXray]
+                });
+
+                alert(`X-Ray Analyzed Successfully!\nAI Prediction: ${data.prediction}`);
+            } else {
+                alert("Failed to analyze X-Ray.");
+            }
+        } catch (error) {
+            console.error("Upload error", error);
+            alert("Network error.");
+        } finally {
+            setUploadingXray(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const { profile, activePrescriptions, recentRecords, xrayRecords } = patient;
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="mx-auto max-w-4xl">
 
-                {/* top navigation & actions */}
+                {/* top nav */}
                 <div className="mb-6 flex items-center justify-between">
                     <button onClick={() => navigate("/dashboard")} className="text-sm font-semibold text-blue-600 hover:underline">
                         &larr; Back to Registry
@@ -86,7 +134,6 @@ export default function PatientDetail() {
                 {/* profile card */}
                 <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                     {isEditing ? (
-                        // --- EDIT MODE UI ---
                         <div className="space-y-4">
                             <input type="text" name="FullName" value={editForm.FullName} onChange={handleEditChange} className="w-full border-b text-3xl font-bold text-gray-800 outline-none focus:border-blue-500" />
                             <div className="grid grid-cols-2 gap-4 mt-4">
@@ -100,7 +147,6 @@ export default function PatientDetail() {
                             </button>
                         </div>
                     ) : (
-                        // --- VIEW MODE UI ---
                         <>
                             <h1 className="text-3xl font-bold text-gray-800">{profile.FullName}</h1>
                             <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-600">
@@ -114,16 +160,75 @@ export default function PatientDetail() {
                     )}
                 </div>
 
-                {/* medical history sections (read only for MVP) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* medical history grids */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* records */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                         <h2 className="mb-4 border-b pb-2 text-xl font-bold text-gray-800">Recent Records</h2>
-                        {recentRecords?.length === 0 ? <p className="text-sm text-gray-500">No records found.</p> : null}
+                        {recentRecords?.length === 0 ? <p className="text-sm text-gray-500">No records found.</p> : (
+                            <ul className="space-y-3">
+                                {recentRecords?.map(rec => (
+                                    <li key={rec.RecordID} className="text-sm border-l-4 border-blue-500 pl-3">
+                                        <p className="font-semibold">{rec.Date}</p>
+                                        <p className="text-gray-600">{rec.Diagnosis}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
+
+                    {/* prescriptions */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                         <h2 className="mb-4 border-b pb-2 text-xl font-bold text-gray-800">Active Prescriptions</h2>
-                        {activePrescriptions?.length === 0 ? <p className="text-sm text-gray-500">No prescriptions found.</p> : null}
+                        {activePrescriptions?.length === 0 ? <p className="text-sm text-gray-500">No prescriptions found.</p> : (
+                            <ul className="space-y-3">
+                                {activePrescriptions?.map(pre => (
+                                    <li key={pre.RecordID} className="text-sm border-l-4 border-green-500 pl-3">
+                                        <p className="font-semibold">{pre.Name}</p>
+                                        <p className="text-gray-600">{pre.Dosage}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
+                </div>
+
+                {/* xray section */}
+                <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between border-b pb-2">
+                        <h2 className="text-xl font-bold text-gray-800">AI X-Ray Analysis</h2>
+
+                        {/* hidden file input triggered by button */}
+                        <input
+                            type="file"
+                            accept="image/jpeg, image/png"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleXrayUpload}
+                        />
+
+                        <button
+                            onClick={() => fileInputRef.current.click()}
+                            disabled={uploadingXray}
+                            className="rounded bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+                        >
+                            {uploadingXray ? "Analyzing Image..." : "+ Upload X-Ray"}
+                        </button>
+                    </div>
+
+                    {xrayRecords?.length === 0 ? <p className="text-sm text-gray-500">No X-Rays on file.</p> : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {xrayRecords?.map(xray => (
+                                <div key={xray.RecordID} className="rounded border bg-gray-50 p-4">
+                                    <p className="font-semibold text-gray-800">{xray.FileName}</p>
+                                    <p className="text-sm text-gray-500 mb-2">Uploaded: {xray.Timestamp}</p>
+                                    <div className="inline-block rounded bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-800">
+                                        AI Prediction: {xray.Prediction}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
             </div>
