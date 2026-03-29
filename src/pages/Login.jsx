@@ -14,62 +14,51 @@ export default function Login() {
     const handleLogin = (e) => {
         e.preventDefault();
         setError("");
-        setIsLoading(true);
 
         if (!email || !password) {
-            setError("Please enter both email and password.");
-            setIsLoading(false);
+            setError("Email and password are required.");
             return;
         }
 
-        // 1. Package the credentials
+        setIsLoading(true);
+
         const authDetails = new AuthenticationDetails({
             Username: email,
             Password: password,
         });
 
-        // 2. Point to the specific user in our Pool
         const cognitoUser = new CognitoUser({
             Username: email,
             Pool: userPool,
         });
 
-        // 3. Attempt to authenticate with AWS
         cognitoUser.authenticateUser(authDetails, {
             onSuccess: (result) => {
-                console.log("AWS Login Successful!", result);
                 const accessToken = result.getAccessToken().getJwtToken();
                 localStorage.setItem("medrecords_token", accessToken);
                 setIsLoading(false);
                 navigate("/dashboard");
             },
             newPasswordRequired: (userAttributes, requiredAttributes) => {
-                console.log("AWS demands a new password and a name!");
-
-                // AWS needs the required 'name' attribute to finish setting up the account!
                 const finalAttributes = {
-                    name: "Admin", // Providing a default name to pass the security check
+                    name: "Doctor",
                 };
 
-                // We pass finalAttributes instead of userAttributes
                 cognitoUser.completeNewPasswordChallenge(password, finalAttributes, {
                     onSuccess: (result) => {
-                        console.log("Password and name updated successfully!", result);
                         const accessToken = result.getAccessToken().getJwtToken();
                         localStorage.setItem("medrecords_token", accessToken);
                         setIsLoading(false);
                         navigate("/dashboard");
                     },
                     onFailure: (err) => {
-                        console.error("Password update failed:", err);
-                        setError(err.message);
+                        setError(err.message || "Failed to complete authentication challenge.");
                         setIsLoading(false);
                     }
                 });
             },
             onFailure: (err) => {
-                console.error("AWS Login Failed:", err);
-                setError(err.message || "Incorrect username or password.");
+                setError(err.message || "Invalid credentials.");
                 setIsLoading(false);
             },
         });
@@ -79,7 +68,7 @@ export default function Login() {
         <div className="flex min-h-screen items-center justify-center bg-gray-100">
             <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
                 <h1 className="mb-6 text-center text-3xl font-bold text-blue-600">MedRecords</h1>
-                <h2 className="mb-6 text-center text-xl text-gray-700">Doctor Portal Login</h2>
+                <h2 className="mb-6 text-center text-xl text-gray-700">Provider Login</h2>
 
                 {error && (
                     <div className="mb-4 rounded bg-red-100 p-3 text-center text-sm text-red-700">
@@ -91,11 +80,12 @@ export default function Login() {
                     <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Email Address</label>
                         <input
-                            type="text"
+                            type="email"
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            placeholder="doctor@hospital.com"
+                            placeholder="provider@medrecords.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            required
                         />
                     </div>
 
@@ -107,6 +97,7 @@ export default function Login() {
                             placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            required
                         />
                     </div>
 
@@ -115,7 +106,7 @@ export default function Login() {
                         disabled={isLoading}
                         className="w-full rounded-md bg-blue-600 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:bg-blue-300"
                     >
-                        {isLoading ? "Verifying..." : "Sign In"}
+                        {isLoading ? "Authenticating..." : "Sign In"}
                     </button>
                 </form>
             </div>

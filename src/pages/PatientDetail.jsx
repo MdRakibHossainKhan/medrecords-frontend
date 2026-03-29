@@ -6,10 +6,8 @@ export default function PatientDetail() {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    // grab initial data
     const patientData = location.state?.patient;
 
-    // local states
     const [patient, setPatient] = useState(patientData);
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -27,7 +25,7 @@ export default function PatientDetail() {
         try {
             const response = await fetch("http://localhost:8080/update-patient", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", "x-role": "doctor", "x-sub": "demo-sub" },
+                headers: { "Content-Type": "application/json", "x-role": "doctor", "x-sub": "auth-user-1" },
                 body: JSON.stringify(editForm),
             });
 
@@ -48,7 +46,7 @@ export default function PatientDetail() {
         try {
             const response = await fetch(`http://localhost:8080/delete-patient/${patient.profile.PatientID}`, {
                 method: "DELETE",
-                headers: { "x-role": "doctor", "x-sub": "demo-sub" }
+                headers: { "x-role": "doctor", "x-sub": "auth-user-1" }
             });
 
             if (response.ok) navigate("/dashboard");
@@ -57,7 +55,6 @@ export default function PatientDetail() {
         }
     };
 
-    // handle xray file selection and upload
     const handleXrayUpload = async (e) => {
         const file = e.target.files;
         if (!file) return;
@@ -65,11 +62,10 @@ export default function PatientDetail() {
         setUploadingXray(true);
 
         try {
-            // BYPASS: Send standard JSON with just the file name!
             const response = await fetch("http://localhost:8080/analyze-xray", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json", // We CAN use JSON now!
+                    "Content-Type": "application/json",
                     "x-role": "doctor",
                     "x-sub": patient.profile.PatientID
                 },
@@ -91,12 +87,12 @@ export default function PatientDetail() {
                     xrayRecords: [...(patient.xrayRecords || []), newXray]
                 });
 
-                alert(`X-Ray Analyzed Successfully!\nAI Prediction: ${data.prediction}`);
+                alert(`Analysis Complete:\nResult: ${data.prediction}`);
             } else {
-                alert("Failed to analyze X-Ray.");
+                alert("Processing failed.");
             }
         } catch (error) {
-            console.error("Upload error", error);
+            console.error("Transmission error", error);
             alert("Network error.");
         } finally {
             setUploadingXray(false);
@@ -110,7 +106,6 @@ export default function PatientDetail() {
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="mx-auto max-w-4xl">
 
-                {/* top nav */}
                 <div className="mb-6 flex items-center justify-between">
                     <button onClick={() => navigate("/dashboard")} className="text-sm font-semibold text-blue-600 hover:underline">
                         &larr; Back to Registry
@@ -131,7 +126,6 @@ export default function PatientDetail() {
                     </div>
                 </div>
 
-                {/* profile card */}
                 <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                     {isEditing ? (
                         <div className="space-y-4">
@@ -160,9 +154,7 @@ export default function PatientDetail() {
                     )}
                 </div>
 
-                {/* medical history grids */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    {/* records */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                         <h2 className="mb-4 border-b pb-2 text-xl font-bold text-gray-800">Recent Records</h2>
                         {recentRecords?.length === 0 ? <p className="text-sm text-gray-500">No records found.</p> : (
@@ -177,7 +169,6 @@ export default function PatientDetail() {
                         )}
                     </div>
 
-                    {/* prescriptions */}
                     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                         <h2 className="mb-4 border-b pb-2 text-xl font-bold text-gray-800">Active Prescriptions</h2>
                         {activePrescriptions?.length === 0 ? <p className="text-sm text-gray-500">No prescriptions found.</p> : (
@@ -193,12 +184,10 @@ export default function PatientDetail() {
                     </div>
                 </div>
 
-                {/* xray section */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                     <div className="mb-4 flex items-center justify-between border-b pb-2">
-                        <h2 className="text-xl font-bold text-gray-800">AI X-Ray Analysis</h2>
+                        <h2 className="text-xl font-bold text-gray-800">Radiology Analysis</h2>
 
-                        {/* hidden file input triggered by button */}
                         <input
                             type="file"
                             accept="image/jpeg, image/png"
@@ -212,18 +201,18 @@ export default function PatientDetail() {
                             disabled={uploadingXray}
                             className="rounded bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
                         >
-                            {uploadingXray ? "Analyzing Image..." : "+ Upload X-Ray"}
+                            {uploadingXray ? "Processing..." : "+ Process Scan"}
                         </button>
                     </div>
 
-                    {xrayRecords?.length === 0 ? <p className="text-sm text-gray-500">No X-Rays on file.</p> : (
+                    {xrayRecords?.length === 0 ? <p className="text-sm text-gray-500">No scans available.</p> : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {xrayRecords?.map(xray => (
                                 <div key={xray.RecordID} className="rounded border bg-gray-50 p-4">
                                     <p className="font-semibold text-gray-800">{xray.FileName}</p>
-                                    <p className="text-sm text-gray-500 mb-2">Uploaded: {xray.Timestamp}</p>
+                                    <p className="text-sm text-gray-500 mb-2">Timestamp: {xray.Timestamp}</p>
                                     <div className="inline-block rounded bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-800">
-                                        AI Prediction: {xray.Prediction}
+                                        Result: {xray.Prediction}
                                     </div>
                                 </div>
                             ))}
